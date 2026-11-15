@@ -1,24 +1,20 @@
-import { useState } from 'react'
+import { Route, Routes } from 'react-router'
+import MainLayout from './layouts/MainLayout.tsx'
+import AboutPage from './pages/AboutPage.tsx'
+import HomePage from './pages/HomePage.tsx'
+import NotFoundPage from './pages/NotFoundPage.tsx'
+import UsersPage from './pages/UsersPage.tsx'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section>
-        <div>
-          <h1>Get started</h1>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-    </>
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route index element={<HomePage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="about" element={<AboutPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   )
 }
 
