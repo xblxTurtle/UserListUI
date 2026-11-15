@@ -15,7 +15,23 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - `npm run lint`: oxlint (config in `.oxlintrc.json`)
 - `npm run preview`: serve the built `dist/`
 
-No test runner is configured yet.
+- `npm run test:vrt`: visual regression tests (Vitest browser mode, Playwright, headless Chromium)
+- `npm run test:vrt:update`: regenerate all reference screenshots after an intentional UI change
+
+## Visual regression tests
+
+- Config is in `vitest.config.ts` (the `vrt` project, merged with `vite.config.ts`). The project picks up `src/**/*.vrt.test.tsx`, one file per component or page, next to its source.
+- Reference screenshots are written to `screenshots/`, mirroring `src/`. For example, `src/components/Header.vrt.test.tsx` writes to `screenshots/components/Header/<name>-chromium-darwin.png`. Commit them.
+- Each test captures the xs (375), md (900) and lg (1200) widths through `page.viewport()`. The `viewports` list lives in `src/test/vrt.tsx`.
+- Use the helpers in `src/test/vrt.tsx`:
+  - `renderWithRouter(ui, route)` for components that use `NavLink`/`Link`.
+  - `renderPage(<XPage/>, route)` for pages. It renders them inside the real `MainLayout`, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
+  - `bodyLocator()` is also needed for portals such as the open Drawer.
+- `src/test/vrt.setup.ts` freezes `Date` before each test file loads, because Footer's © year is computed at module load.
+- Screenshots depend on the OS (system fonts), so the file name carries the platform. Mac references won't match Linux CI.
+- Screenshots for renamed or deleted tests are not removed automatically. Delete them by hand.
+- Failed-run diffs and actual images go to `.vitest/`, which is gitignored.
+- If Chromium is missing, run `npx playwright install chromium` once.
 
 ## Structure and config
 
