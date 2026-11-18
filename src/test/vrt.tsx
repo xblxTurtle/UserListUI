@@ -1,10 +1,35 @@
 // Shared helpers for visual regression tests (*.vrt.test.tsx).
+import type { MockLink } from '@apollo/client/testing'
+import { MockedProvider } from '@apollo/client/testing/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import MainLayout from '../layouts/MainLayout.tsx'
+import { GET_USERS } from '../users/queries.ts'
+import type { User } from '../users/queries.ts'
 import '../index.css'
+
+const mockUsers: User[] = [
+  {
+    id: '00000000-0000-4000-8000-000000000001',
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    email: 'ada@example.com',
+    role: 'Admin',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  },
+]
+
+/** GraphQL mocks for every VRT render, so tests never reach the network. maxUsageCount covers StrictMode/re-renders. */
+const graphqlMocks: MockLink.MockedResponse[] = [
+  {
+    request: { query: GET_USERS },
+    result: { data: { users: mockUsers } },
+    maxUsageCount: Number.POSITIVE_INFINITY,
+  },
+]
 
 /** Widths match MUI's default breakpoints. Below sm (600) the header shows the mobile menu button. */
 export const viewports = [
@@ -16,9 +41,16 @@ export const viewports = [
 /** Locator for the whole document body. Use it to capture full pages and portals such as the Drawer. */
 export const bodyLocator = () => page.elementLocator(document.body)
 
-/** Renders a component inside a router at the given URL, so NavLink/Link work and the matching link is active. */
+/**
+ * Renders a component inside a router at the given URL, so NavLink/Link work and the matching link is active.
+ * Also provides a mocked Apollo Client, so components that run GraphQL queries render without a server.
+ */
 export function renderWithRouter(ui: ReactNode, route = '/') {
-  return render(<MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>)
+  return render(
+    <MockedProvider mocks={graphqlMocks}>
+      <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+    </MockedProvider>,
+  )
 }
 
 /** Renders a page inside the real MainLayout (header, content, footer) at the given URL. */

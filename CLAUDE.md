@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend lives in the sibling `../UserListServer`, which is outside this repo and has no code yet. The project is still at the scaffolding stage: routing (react-router, declarative mode) and a responsive layout shell are in place, but the pages are placeholders.
+This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. The project is still at the scaffolding stage: routing (react-router, declarative mode) and a responsive layout shell are in place, but the pages are placeholders. HomePage fetches the user list on mount and only logs it to the console for now.
 
 ## Commands
 
@@ -27,6 +27,7 @@ Node version is pinned in `.nvmrc` (v22.23.2).
   - `renderWithRouter(ui, route)` for components that use `NavLink`/`Link`.
   - `renderPage(<XPage/>, route)` for pages. It renders them inside the real `MainLayout`, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
   - `bodyLocator()` is also needed for portals such as the open Drawer.
+- `renderWithRouter` (and so `renderPage`) also wraps the tree in Apollo's `MockedProvider` with the mocks in `src/test/vrt.tsx`. Tests never reach the network. When a component runs a new query, add a mock for it there. Otherwise the query errors and logs a "no more mocked responses" warning.
 - `src/test/vrt.setup.ts` freezes `Date` before each test file loads, because Footer's © year is computed at module load.
 - Screenshots depend on the OS (system fonts), so the file name carries the platform. Mac references won't match Linux CI.
 - Screenshots for renamed or deleted tests are not removed automatically. Delete them by hand.
@@ -35,7 +36,11 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 
 ## Structure and config
 
-- Entry point: `index.html` → `src/main.tsx` (renders `<App/>` inside `BrowserRouter` and `StrictMode`) → `src/App.tsx` (the `<Routes>` table).
+- Entry point: `index.html` → `src/main.tsx` (renders `<App/>` inside `StrictMode`, `ApolloProvider` and `BrowserRouter`) → `src/App.tsx` (the `<Routes>` table).
+- GraphQL:
+  - `src/apollo/client.ts` creates the single `ApolloClient`. Its endpoint is `VITE_GRAPHQL_URL` (typed in `src/vite-env.d.ts`) and defaults to `http://localhost:4000/`. Start the server with `npm run dev` in `../UserListServer`.
+  - Queries and their result types live by domain, for example `src/users/queries.ts` (`User` and `GET_USERS`). Type documents as `TypedDocumentNode` so `useQuery` infers `data`. The `User` type is written by hand to mirror the server schema.
+  - Apollo Client 4 import paths: core (`ApolloClient`, `gql`, `HttpLink`) from `@apollo/client`, hooks and `ApolloProvider` from `@apollo/client/react`, and `MockedProvider` from `@apollo/client/testing/react`.
 - All routes are nested under the pathless `src/layouts/MainLayout.tsx` (Header, `<Outlet/>` in a `<main>` Container, Footer). Pages live in `src/pages/`.
 - Header links come from `src/navItems.ts`. To add a page, add an entry there and a `<Route>` in `App.tsx`. On `sm` and up the links render inline; below `sm` they move into a Drawer opened by a menu button.
 - MUI v9 has no system props (`color`, `mt`, `align`, ...) on `Box`/`Typography`/`Stack`/etc. Use `sx`. Router links use `component={NavLink}` / `component={Link}`, and the active link is styled through `'&.active'` in `sx`.
