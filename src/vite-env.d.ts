@@ -1,6 +1,6 @@
 interface ImportMetaEnv {
-  /** GraphQL endpoint of UserListServer. Defaults to http://localhost:4000/ when unset. */
-  readonly VITE_GRAPHQL_URL?: string
+  /** GraphQL endpoint of UserListServer. The default is in .env. */
+  readonly VITE_GRAPHQL_URL: string
 }
 
 interface ImportMeta {

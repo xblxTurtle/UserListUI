@@ -1,0 +1,43 @@
+input CreateUserInput {
+  email: String!
+  firstName: String!
+  lastName: String!
+  role: String!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+
+  """Fails with NOT_FOUND when no user has this id."""
+  updateUser(id: ID!, input: UpdateUserInput!): User!
+}
+
+type Query {
+  """Returns null when no user has this id."""
+  user(id: ID!): User
+  users: [User!]!
+}
+
+"""
+Partial update: omitted fields are left unchanged.
+Fields are nullable only so they can be omitted; an explicit null is rejected.
+"""
+input UpdateUserInput {
+  email: String
+  firstName: String
+  lastName: String
+  role: String
+}
+
+type User {
+  """ISO 8601 timestamp"""
+  createdAt: String!
+  email: String!
+  firstName: String!
+  id: ID!
+  lastName: String!
+  role: String!
+
+  """ISO 8601 timestamp"""
+  updatedAt: String!
+}

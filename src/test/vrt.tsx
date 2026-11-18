@@ -7,11 +7,12 @@ import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import MainLayout from '../layouts/MainLayout.tsx'
 import { GET_USERS } from '../users/queries.ts'
-import type { User } from '../users/queries.ts'
+import type { GetUsersQuery } from '../types/__generated__/graphql.ts'
 import '../index.css'
 
-const mockUsers: User[] = [
+const mockUsers: GetUsersQuery['users'] = [
   {
+    __typename: 'User',
     id: '00000000-0000-4000-8000-000000000001',
     firstName: 'Ada',
     lastName: 'Lovelace',

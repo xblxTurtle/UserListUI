@@ -1,9 +1,7 @@
 import { ApolloClient, HttpLink, InMemoryCache } from '@apollo/client'
 
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? 'http://localhost:4000/'
-
-/** The app-wide Apollo Client, connected to UserListServer. */
+/** The app-wide Apollo Client, connected to UserListServer at VITE_GRAPHQL_URL (default in .env). */
 export const apolloClient = new ApolloClient({
-  link: new HttpLink({ uri: GRAPHQL_URL }),
+  link: new HttpLink({ uri: import.meta.env.VITE_GRAPHQL_URL }),
   cache: new InMemoryCache(),
 })

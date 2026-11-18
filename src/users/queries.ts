@@ -1,20 +1,8 @@
 import type { TypedDocumentNode } from '@apollo/client'
 import { gql } from '@apollo/client'
+import type { GetUsersQuery, GetUsersQueryVariables } from '../types/__generated__/graphql.ts'
 
-/** Mirrors the server's `User` type. Every field is non-null. */
-export interface User {
-  id: string
-  firstName: string
-  lastName: string
-  email: string
-  role: string
-  /** ISO 8601 timestamp */
-  createdAt: string
-  /** ISO 8601 timestamp */
-  updatedAt: string
-}
-
-export const GET_USERS: TypedDocumentNode<{ users: User[] }> = gql`
+export const GET_USERS: TypedDocumentNode<GetUsersQuery, GetUsersQueryVariables> = gql`
   query GetUsers {
     users {
       id

@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run codegen:check && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "test:vrt": "vitest run --project vrt",
-    "test:vrt:update": "vitest run --project vrt --update"
+    "test:vrt:update": "vitest run --project vrt --update",
+    "schema:pull": "graphql-codegen --config codegen.schema.ts",
+    "codegen": "graphql-codegen --config codegen.ts",
+    "codegen:check": "graphql-codegen --config codegen.ts --check"
   },
   "dependencies": {
     "@apollo/client": "^4.3.8",
@@ -24,6 +27,9 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "^8.0.0",
+    "@graphql-codegen/schema-ast": "^7.0.0",
+    "@graphql-codegen/typescript-operations": "^7.0.1",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

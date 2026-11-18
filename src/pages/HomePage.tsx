@@ -1,8 +1,7 @@
-
+import { useQuery } from '@apollo/client/react'
 import Typography from '@mui/material/Typography'
 import { useEffect } from 'react'
 import { GET_USERS } from '../users/queries.ts'
-import { useQuery } from '@apollo/client/react'
 
 function HomePage() {
   const { data, error } = useQuery(GET_USERS)
@@ -12,9 +11,6 @@ function HomePage() {
     if (error) console.error('Failed to load users', error)
     else if (data) console.log('Users', data.users)
   }, [data, error])
-
-  
-
 
   return (
     <>
