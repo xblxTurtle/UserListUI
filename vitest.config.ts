@@ -11,6 +11,21 @@ export default mergeConfig(
         {
           extends: true,
           test: {
+            name: 'behavior',
+            include: ['src/**/*.test.tsx'],
+            exclude: ['**/node_modules/**', 'src/**/*.vrt.test.tsx'],
+            browser: {
+              enabled: true,
+              headless: true,
+              provider: playwright(),
+              screenshotFailures: false,
+              instances: [{ browser: 'chromium' }],
+            },
+          },
+        },
+        {
+          extends: true,
+          test: {
             name: 'vrt',
             include: ['src/**/*.vrt.test.tsx'],
             setupFiles: ['src/test/vrt.setup.ts'],

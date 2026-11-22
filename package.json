@@ -8,6 +8,7 @@
     "build": "npm run codegen:check && tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "test": "vitest run --project behavior",
     "test:vrt": "vitest run --project vrt",
     "test:vrt:update": "vitest run --project vrt --update",
     "schema:pull": "graphql-codegen --config codegen.schema.ts",

@@ -1,16 +1,7 @@
-import { useQuery } from '@apollo/client/react'
 import Typography from '@mui/material/Typography'
-import { useEffect } from 'react'
-import { GET_USERS } from '../users/queries.ts'
 
 function HomePage() {
-  const { data, error } = useQuery(GET_USERS)
-
-  // The list is not rendered yet. Log it to confirm the server connection works.
-  useEffect(() => {
-    if (error) console.error('Failed to load users', error)
-    else if (data) console.log('Users', data.users)
-  }, [data, error])
+  
 
   return (
     <>

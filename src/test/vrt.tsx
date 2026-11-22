@@ -10,18 +10,32 @@ import { GET_USERS } from '../users/queries.ts'
 import type { GetUsersQuery } from '../types/__generated__/graphql.ts'
 import '../index.css'
 
-const mockUsers: GetUsersQuery['users'] = [
-  {
-    __typename: 'User',
-    id: '00000000-0000-4000-8000-000000000001',
-    firstName: 'Ada',
-    lastName: 'Lovelace',
-    email: 'ada@example.com',
-    role: 'Admin',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-  },
+const mockNames = [
+  ['Ada', 'Lovelace'],
+  ['Alan', 'Turing'],
+  ['Grace', 'Hopper'],
+  ['Edsger', 'Dijkstra'],
+  ['Barbara', 'Liskov'],
+  ['Donald', 'Knuth'],
+  ['Katherine', 'Johnson'],
+  ['Dennis', 'Ritchie'],
+  ['Frances', 'Allen'],
+  ['John', 'Backus'],
+  ['Margaret', 'Hamilton'],
+  ['Niklaus', 'Wirth'],
 ]
+
+// More than two pages at the default 5 rows, so screenshots show working pagination.
+const mockUsers: GetUsersQuery['users'] = mockNames.map(([firstName, lastName], i) => ({
+  __typename: 'User',
+  id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+  firstName,
+  lastName,
+  email: `${firstName}.${lastName}@example.com`.toLowerCase(),
+  role: i === 0 ? 'admin' : 'viewer',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+}))
 
 /** GraphQL mocks for every VRT render, so tests never reach the network. maxUsageCount covers StrictMode/re-renders. */
 const graphqlMocks: MockLink.MockedResponse[] = [

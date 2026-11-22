@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. The project is still at the scaffolding stage: routing (react-router, declarative mode) and a responsive layout shell are in place, but the pages are placeholders. HomePage fetches the user list on mount and only logs it to the console for now.
+This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage is a welcome text that also fetches the user list and only logs it to the console. AboutPage is static text.
 
 ## Commands
 
@@ -17,8 +17,15 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - `npm run lint`: oxlint (config in `.oxlintrc.json`)
 - `npm run preview`: serve the built `dist/`
 
+- `npm test`: behavior tests (Vitest browser mode, Playwright, headless Chromium)
 - `npm run test:vrt`: visual regression tests (Vitest browser mode, Playwright, headless Chromium)
 - `npm run test:vrt:update`: regenerate all reference screenshots after an intentional UI change
+
+## Behavior tests
+
+- The `behavior` project in `vitest.config.ts` picks up `src/**/*.test.tsx`, except `*.vrt.test.tsx`. Files sit next to their source, for example `src/pages/UsersPage.test.tsx`.
+- They assert on the DOM and take no screenshots. Each test builds its own Apollo Client with a fake link, so it controls success, failure and timing.
+- Do not assert on MUI propTypes warnings (for example "page is out of range"). React 19 ignores propTypes, so they never fire. Assert on what is rendered.
 
 ## Visual regression tests
 
@@ -28,6 +35,7 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - Use the helpers in `src/test/vrt.tsx`:
   - `renderWithRouter(ui, route)` for components that use `NavLink`/`Link`.
   - `renderPage(<XPage/>, route)` for pages. It renders them inside the real `MainLayout`, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
+  - For a page that fetches, wait for its data before the screenshot, as `UsersPage.vrt.test.tsx` does. Otherwise it can capture the spinner.
   - `bodyLocator()` is also needed for portals such as the open Drawer.
 - `renderWithRouter` (and so `renderPage`) also wraps the tree in Apollo's `MockedProvider` with the mocks in `src/test/vrt.tsx`. Tests never reach the network. When a component runs a new query, add a mock for it there. Otherwise the query errors and logs a "no more mocked responses" warning.
 - `src/test/vrt.setup.ts` freezes `Date` before each test file loads, because Footer's © year is computed at module load.

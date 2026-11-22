@@ -8,7 +8,7 @@ function MainLayout() {
   return (
     <>
       <Header />
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+      <Container component="main" maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
         <Outlet />
       </Container>
       <Footer />
