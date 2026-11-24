@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage and AboutPage are static text. LoginPage (`/login`) is a username and password form that is not connected to the API yet. `AuthProvider` (`src/auth/`) checks the session on mount and provides `login`.
+This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage and AboutPage are static text. LoginPage (`/login`) is a username and password form that is not connected to the API yet. `AuthProvider` (`src/auth/`) checks the session on mount and provides `login`. Every page except `/login` requires a logged-in user.
 
 ## Commands
 
@@ -33,8 +33,8 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - Reference screenshots are written to `screenshots/`, mirroring `src/`. For example, `src/components/Header.vrt.test.tsx` writes to `screenshots/components/Header/<name>-chromium-darwin.png`. Commit them.
 - Each test captures the xs (375), md (900) and lg (1200) widths through `page.viewport()`. The `viewports` list lives in `src/test/vrt.tsx`.
 - Use the helpers in `src/test/vrt.tsx`:
-  - `renderWithRouter(ui, route)` for components that use `NavLink`/`Link`.
-  - `renderPage(<XPage/>, route)` for pages. It renders them inside the real `MainLayout`, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
+  - `renderWithRouter(ui, route, auth?)` for components that use `NavLink`/`Link`. It also provides `AuthContext`, logged in by default so the header shows its nav. Pass `loggedOut()` or `checkingSession()` from `src/test/auth.ts` for the other states, as `Header.vrt.test.tsx` does.
+  - `renderPage(<XPage/>, route)` for pages. It renders them inside the real `MainLayout`, without the route guards, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
   - For a page that fetches, wait for its data before the screenshot, as `UsersPage.vrt.test.tsx` does. Otherwise it can capture the spinner.
   - `bodyLocator()` is also needed for portals such as the open Drawer.
 - `renderWithRouter` (and so `renderPage`) also wraps the tree in Apollo's `MockedProvider` with the mocks in `src/test/vrt.tsx`. Tests never reach the network. When a component runs a new query, add a mock for it there. Otherwise the query errors and logs a "no more mocked responses" warning.
@@ -73,10 +73,19 @@ Node version is pinned in `.nvmrc` (v22.23.2).
   - `login()` never rejects. It resolves to `{ ok: true }` or `{ ok: false, error: 'invalid-credentials' | 'network' | 'server' }`. A failed login leaves the state unchanged, as the server leaves the session. A successful login wins over a session check that answers later.
   - A session check that fails (network or server error) counts as logged out.
   - The files are split so each component file exports only a component: `AuthContext.ts` (context and types), `AuthProvider.tsx`, `useAuth.ts`, and `authApi.ts` (the fetch calls).
+  - `Protected` renders its children for a logged-in user. Anyone else gets `<Navigate to="/login" replace state={{ from: location }}/>`. `from` is the whole location (path, query and hash), kept for a post-login redirect that nothing reads yet.
+  - `GuestOnly` is the reverse. It renders its children for a logged-out user and sends a logged-in user to `/` with `replace`.
+  - While the session check runs, both show `AuthLoading`, an MUI `CircularProgress` labeled "Checking your session", inside `<main>`. So the header and footer stay up, and a logged-in user never sees the login form flash before the redirect.
+  - The guards only react to the auth state. Nothing checks the session again, so a session that expires while the user is on a page goes unnoticed until the next full load.
   - The REST calls go to `VITE_API_URL_PATH` (`/api`) on the app's origin. See "Server address" above for how the proxy forwards them.
-  - Behavior tests stub `fetch` with `vi.spyOn(globalThis, 'fetch')`. `src/auth/authApi.test.ts` covers the HTTP layer: the request each call sends, and how every status, network error and malformed body maps to a result. `src/auth/AuthProvider.test.tsx` covers the state on top of it.
+  - Tests that need a fixed auth state (the guards, `Header.test.tsx`, `App.test.tsx`, `UsersPage.test.tsx`) don't stub `fetch`. They provide `<AuthContext value={fakeAuth(...)}>` from `src/test/auth.ts`, which is logged in as `ada` by default, with `loggedOut()` and `checkingSession()` for the other states. A test that renders `<App/>` needs this, or every page redirects to `/login`.
+  - The `AuthProvider` and `authApi` tests stub `fetch` with `vi.spyOn(globalThis, 'fetch')`. `src/auth/authApi.test.ts` covers the HTTP layer: the request each call sends, and how every status, network error and malformed body maps to a result. `src/auth/AuthProvider.test.tsx` covers the state on top of it.
 - All routes are nested under the pathless `src/layouts/MainLayout.tsx` (Header, `<Outlet/>` in a `<main>` Container, Footer). Pages live in `src/pages/`.
-- Header links come from `src/navItems.ts`. To add a page, add an entry there and a `<Route>` in `App.tsx`. On `sm` and up the links render inline; below `sm` they move into a Drawer opened by a menu button.
+- Route guards (`src/auth/`), both inside `MainLayout`:
+  - Every page except `/login` sits in a pathless `<Protected><Outlet/></Protected>` route, the 404 page included.
+  - `/login` is wrapped in `GuestOnly`.
+  - Put a new private page inside the `Protected` group in `App.tsx`. Wrap a page meant only for logged-out users, such as a future register page, in `GuestOnly`.
+- Header links come from `src/navItems.ts`. To add a page, add an entry there and a `<Route>` in `App.tsx`. On `sm` and up the links render inline; below `sm` they move into a Drawer opened by a menu button. The nav (links, menu button and Drawer) shows only when `useAuth().isAuthenticated`. While the session check runs, or when logged out, the header shows just the title.
 - MUI v9 has no system props (`color`, `mt`, `align`, ...) on `Box`/`Typography`/`Stack`/etc. Use `sx`. Router links use `component={NavLink}` / `component={Link}`, and the active link is styled through `'&.active'` in `sx`.
 - TypeScript uses project references: `tsconfig.app.json` covers `src/` and `tsconfig.node.json` covers the root config files (`vite.config.ts`, `vitest.config.ts`, `codegen*.ts`, `serverEnv.ts`). It is TypeScript `~7.0` (the native Go-based compiler).
 - The compiler settings are strict about some things:

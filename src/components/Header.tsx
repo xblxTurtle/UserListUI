@@ -12,11 +12,14 @@ import ListItemText from '@mui/material/ListItemText'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import MenuIcon from '@mui/icons-material/Menu'
+import { useAuth } from '../auth/useAuth.ts'
 import { navItems } from '../navItems.ts'
 
 const APP_TITLE = 'User List'
 
+/** App bar with the title. The nav (inline links on sm and up, menu button and Drawer below) is for logged-in users only. */
 function Header() {
+  const { isAuthenticated } = useAuth()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const closeDrawer = () => setDrawerOpen(false)
 
@@ -24,15 +27,17 @@ function Header() {
     <>
       <AppBar position="sticky">
         <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            aria-label="open navigation menu"
-            onClick={() => setDrawerOpen(true)}
-            sx={{ mr: 1, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
+          {isAuthenticated && (
+            <IconButton
+              color="inherit"
+              edge="start"
+              aria-label="open navigation menu"
+              onClick={() => setDrawerOpen(true)}
+              sx={{ mr: 1, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
 
           <Typography
             variant="h6"
@@ -43,25 +48,28 @@ function Header() {
             {APP_TITLE}
           </Typography>
 
-          <Box component="nav" sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
-            {navItems.map(({ label, path }) => (
-              <Button
-                key={path}
-                component={NavLink}
-                to={path}
-                end
-                color="inherit"
-                sx={{ '&.active': { bgcolor: 'rgba(255, 255, 255, 0.16)' } }}
-              >
-                {label}
-              </Button>
-            ))}
-          </Box>
+          {isAuthenticated && (
+            <Box component="nav" sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
+              {navItems.map(({ label, path }) => (
+                <Button
+                  key={path}
+                  component={NavLink}
+                  to={path}
+                  end
+                  color="inherit"
+                  sx={{ '&.active': { bgcolor: 'rgba(255, 255, 255, 0.16)' } }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </Box>
+          )}
         </Toolbar>
       </AppBar>
 
       <Drawer
-        open={drawerOpen}
+        // Also closed when logged out, so the menu never shows without the nav.
+        open={drawerOpen && isAuthenticated}
         onClose={closeDrawer}
         sx={{ display: { sm: 'none' } }}
       >

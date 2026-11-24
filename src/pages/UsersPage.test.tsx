@@ -8,7 +8,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import App from '../App.tsx'
+import { AuthContext } from '../auth/AuthContext.ts'
 import { GET_USERS } from '../users/queries.ts'
+import { fakeAuth } from '../test/auth.ts'
 import type { GetUsersQuery } from '../types/__generated__/graphql.ts'
 import '../index.css'
 
@@ -51,7 +53,7 @@ async function renderUsers(...responses: Response[]) {
   return renderApp('/users', ...responses)
 }
 
-/** Renders the app at the route. Each request takes the next response, and the last one repeats. */
+/** Renders the app at the route, logged in. Each request takes the next response, and the last one repeats. */
 async function renderApp(route: string, ...responses: Response[]) {
   let requests = 0
   const link = new ApolloLink(() => responses[Math.min(requests++, responses.length - 1)]())
@@ -59,9 +61,12 @@ async function renderApp(route: string, ...responses: Response[]) {
   await render(
     <StrictMode>
       <ApolloProvider client={client}>
-        <MemoryRouter initialEntries={[route]}>
-          <App />
-        </MemoryRouter>
+        {/* Logged in, so the protected routes render their pages. */}
+        <AuthContext value={fakeAuth()}>
+          <MemoryRouter initialEntries={[route]}>
+            <App />
+          </MemoryRouter>
+        </AuthContext>
       </ApolloProvider>
     </StrictMode>,
   )

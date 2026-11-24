@@ -5,8 +5,11 @@ import type { ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
+import type { Auth } from '../auth/AuthContext.ts'
+import { AuthContext } from '../auth/AuthContext.ts'
 import MainLayout from '../layouts/MainLayout.tsx'
 import { GET_USERS } from '../users/queries.ts'
+import { fakeAuth } from './auth.ts'
 import type { GetUsersQuery } from '../types/__generated__/graphql.ts'
 import '../index.css'
 
@@ -58,12 +61,15 @@ export const bodyLocator = () => page.elementLocator(document.body)
 
 /**
  * Renders a component inside a router at the given URL, so NavLink/Link work and the matching link is active.
- * Also provides a mocked Apollo Client, so components that run GraphQL queries render without a server.
+ * Also provides a mocked Apollo Client, so components that run GraphQL queries render without a server, and
+ * an auth state: logged in by default, so the header shows its nav. Pass `loggedOut()` etc. from ./auth.ts.
  */
-export function renderWithRouter(ui: ReactNode, route = '/') {
+export function renderWithRouter(ui: ReactNode, route = '/', auth: Auth = fakeAuth()) {
   return render(
     <MockedProvider mocks={graphqlMocks}>
-      <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+      <AuthContext value={auth}>
+        <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+      </AuthContext>
     </MockedProvider>,
   )
 }
