@@ -74,8 +74,8 @@ export function renderWithRouter(ui: ReactNode, route = '/', auth: Auth = fakeAu
   )
 }
 
-/** Renders a page inside the real MainLayout (header, content, footer) at the given URL. */
-export function renderPage(pageElement: ReactNode, route: string) {
+/** Renders a page inside the real MainLayout (header, content, footer) at the given URL, logged in unless `auth` says otherwise. */
+export function renderPage(pageElement: ReactNode, route: string, auth?: Auth) {
   return renderWithRouter(
     <Routes>
       <Route element={<MainLayout />}>
@@ -83,5 +83,6 @@ export function renderPage(pageElement: ReactNode, route: string) {
       </Route>
     </Routes>,
     route,
+    auth,
   )
 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage and AboutPage are static text. LoginPage (`/login`) is a username and password form that is not connected to the API yet. `AuthProvider` (`src/auth/`) checks the session on mount and provides `login`. Every page except `/login` requires a logged-in user.
+This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage and AboutPage are static text. LoginPage (`/login`) logs in through `useAuth().login`. `AuthProvider` (`src/auth/`) checks the session on mount and provides `login`. Every page except `/login` requires a logged-in user.
 
 ## Commands
 
@@ -34,7 +34,7 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - Each test captures the xs (375), md (900) and lg (1200) widths through `page.viewport()`. The `viewports` list lives in `src/test/vrt.tsx`.
 - Use the helpers in `src/test/vrt.tsx`:
   - `renderWithRouter(ui, route, auth?)` for components that use `NavLink`/`Link`. It also provides `AuthContext`, logged in by default so the header shows its nav. Pass `loggedOut()` or `checkingSession()` from `src/test/auth.ts` for the other states, as `Header.vrt.test.tsx` does.
-  - `renderPage(<XPage/>, route)` for pages. It renders them inside the real `MainLayout`, without the route guards, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
+  - `renderPage(<XPage/>, route, auth?)` for pages (logged in by default; `LoginPage.vrt.test.tsx` passes `loggedOut()`). It renders them inside the real `MainLayout`, without the route guards, and the screenshot is taken with `bodyLocator()`. As a result, a Header or Footer change also fails every page test.
   - For a page that fetches, wait for its data before the screenshot, as `UsersPage.vrt.test.tsx` does. Otherwise it can capture the spinner.
   - `bodyLocator()` is also needed for portals such as the open Drawer.
 - `renderWithRouter` (and so `renderPage`) also wraps the tree in Apollo's `MockedProvider` with the mocks in `src/test/vrt.tsx`. Tests never reach the network. When a component runs a new query, add a mock for it there. Otherwise the query errors and logs a "no more mocked responses" warning.
@@ -43,6 +43,7 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - Screenshots for renamed or deleted tests are not removed automatically. Delete them by hand.
 - Failed-run diffs and actual images go to `.vitest/`, which is gitignored.
 - If Chromium is missing, run `npx playwright install chromium` once.
+- The first run after a new dependency import (for example a new MUI component or Apollo entry point) can fail with "Failed to import test file" while Vite rebuilds its dependency cache. Run it again before investigating.
 
 ## Structure and config
 
@@ -79,9 +80,17 @@ Node version is pinned in `.nvmrc` (v22.23.2).
   - The GraphQL 401 path clears the Apollo cache, in the link. A future Logout button that calls `logout()` should clear the cache itself.
   - A session check that fails (network or server error) counts as logged out.
   - The files are split so each component file exports only a component: `AuthContext.ts` (context and types), `AuthProvider.tsx`, `useAuth.ts`, and `authApi.ts` (the fetch calls).
-  - `Protected` renders its children for a logged-in user. Anyone else gets `<Navigate to="/login" replace state={{ from: location }}/>`. `from` is the whole location (path, query and hash), kept for a post-login redirect that nothing reads yet.
-  - `GuestOnly` is the reverse. It renders its children for a logged-out user and sends a logged-in user to `/` with `replace`.
+  - `Protected` renders its children for a logged-in user. Anyone else gets `<Navigate to="/login" replace state={{ from: location }}/>`. `from` is the whole location (path, query and hash), and `GuestOnly` reads it after login.
+  - `GuestOnly` is the reverse. It renders its children for a logged-out user. A logged-in user is sent, with `replace`, back to `state.from`, restoring path, query and hash, or to `/` when there is no usable `from`.
+    - This also handles the redirect after a successful login: the auth state changes and `GuestOnly` re-renders, so `LoginPage` never navigates.
+    - `returnTo()` accepts only an object whose `pathname` starts with a single `/`, so malformed or foreign state falls back to `/`. `from` only ever comes from `Protected`'s navigation state, never from a URL parameter.
   - While the session check runs, both show `AuthLoading`, an MUI `CircularProgress` labeled "Checking your session", inside `<main>`. So the header and footer stay up, and a logged-in user never sees the login form flash before the redirect.
+  - `LoginPage`:
+    - Empty fields are checked on the client (a username of only spaces counts as empty). They get MUI error text, focus moves to the first empty one, and no request is sent.
+    - While `login()` runs, the button uses MUI's `loading` (a spinner, "Logging in…", disabled). The disabled submit button is what blocks a second click or Enter; a `submitting` check in the handler is a backstop.
+    - Errors show in an `Alert` above the fields, one message per `LoginError`.
+    - A 401 clears the password. Any failure moves focus to the password field, because disabling the button dropped focus to `<body>`.
+    - On success the page does nothing; `GuestOnly` redirects.
   - The guards only react to the auth state. Nothing checks the session again, so a session that expires while the user is on a page goes unnoticed until the next full load.
   - The REST calls go to `VITE_API_URL_PATH` (`/api`) on the app's origin. See "Server address" above for how the proxy forwards them.
   - Tests that need a fixed auth state (the guards, `Header.test.tsx`, `App.test.tsx`, `UsersPage.test.tsx`) don't stub `fetch`. They provide `<AuthContext value={fakeAuth(...)}>` from `src/test/auth.ts`, which is logged in as `ada` by default, with `loggedOut()` and `checkingSession()` for the other states. A test that renders `<App/>` needs this, or every page redirects to `/login`.
