@@ -57,12 +57,12 @@ Node version is pinned in `.nvmrc` (v22.23.2).
     - The `/api` prefix also keeps the proxy off the UI's own `/login` page.
     - Because of the proxy, the session cookie lives on the UI's origin and needs no CORS credentials.
     - A production deployment needs the same forwarding.
-  - `serverEnv.ts` reads the three variables (through Vite's `loadEnv`) for the Node-side configs: `vite.config.ts` and `codegen.schema.ts`. So the app, the proxy and the schema pull always use the same server.
+  - `serverEnv.ts` reads the three variables (through Vite's `loadEnv`) for `vite.config.ts`, so the app and the proxy always use the same server.
   - Start the server with `npm run dev` in `../UserListServer`.
   - `src/apollo/client.ts` creates the single `ApolloClient`.
   - Queries live by domain, for example `GET_USERS` in `src/users/queries.ts`. Type each document as `TypedDocumentNode<XQuery, XQueryVariables>` with the generated types, so `useQuery` infers `data`. Never write GraphQL types by hand; derive them from the generated ones (e.g. `GetUsersQuery['users'][number]`).
   - Types come from GraphQL Code Generator. The server is a separate repo, so the client commits its own copy of the schema in `schema.graphql`:
-    - `npm run schema:pull` (`codegen.schema.ts`) fetches the schema from the running server at `VITE_SERVER_URL` + `VITE_GRAPHQL_URL_PATH` (directly, no proxy) into `schema.graphql`. Run it only when the server API changes, and commit the diff.
+    - `npm run schema:pull` (`codegen.schema.ts`) copies the schema from the server repo's SDL file, `../UserListServer/src/schema/typeDefs.graphql`, into `schema.graphql`. It doesn't need the server running, which matters because `/graphql` requires a session and introspection would get a 401. It assumes the repos sit side by side. Run it only when the server API changes, and commit the diff.
     - `npm run codegen` (`codegen.ts`) generates `src/types/__generated__/graphql.ts` from `schema.graphql` and the `gql` documents in `src/`. It needs no server. Never edit the generated file. Commit it.
     - `npm run codegen:check` fails if the generated file is out of date. `npm run build` runs it first, so a query edit without `npm run codegen` fails the build.
     - The codegen CLI needs the pinned Node 22 (it uses `fs.glob`). On Node 20 it crashes with "does not provide an export named 'glob'".

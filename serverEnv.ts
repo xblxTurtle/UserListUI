@@ -1,6 +1,6 @@
 import { loadEnv } from 'vite'
 
-// Where UserListServer is, for the Node-side config files (vite.config.ts, codegen.schema.ts).
+// Where UserListServer is, for the Vite proxy (vite.config.ts).
 // Read from the shell or the .env files Vite loads in development mode. The defaults are in .env.
 // The browser never calls VITE_SERVER_URL itself: it calls the two paths on its own origin, and the
 // Vite dev and preview servers proxy them to the server (see vite.config.ts).
