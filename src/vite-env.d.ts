@@ -1,6 +1,8 @@
 interface ImportMetaEnv {
-  /** GraphQL endpoint of UserListServer. The default is in .env. */
-  readonly VITE_GRAPHQL_URL: string
+  /** GraphQL endpoint path on the app's origin, proxied to the server. Default in .env. */
+  readonly VITE_GRAPHQL_URL_PATH: string
+  /** Prefix of every REST route on the app's origin, proxied unchanged to the server. Default in .env. */
+  readonly VITE_API_URL_PATH: string
 }
 
 interface ImportMeta {

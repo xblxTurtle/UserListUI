@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage is a welcome text that also fetches the user list and only logs it to the console. AboutPage is static text.
+This is the frontend of a full-stack "user list" app: React 19, TypeScript, Vite, and MUI v9 (`@mui/material`) with Emotion for styling. The backend is the GraphQL server in the sibling `../UserListServer`, which is outside this repo. The UI talks to it through Apollo Client 4. Routing (react-router, declarative mode) and a responsive layout shell are in place. UsersPage shows the users in an MUI table with client-side pagination (the query returns the whole list), plus loading, error with retry, and empty states. HomePage and AboutPage are static text. LoginPage (`/login`) is a username and password form that is not connected to the API yet. `AuthProvider` (`src/auth/`) checks the session on mount and provides `login`.
 
 ## Commands
 
@@ -23,7 +23,7 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 
 ## Behavior tests
 
-- The `behavior` project in `vitest.config.ts` picks up `src/**/*.test.tsx`, except `*.vrt.test.tsx`. Files sit next to their source, for example `src/pages/UsersPage.test.tsx`.
+- The `behavior` project in `vitest.config.ts` picks up `src/**/*.test.{ts,tsx}`, except `*.vrt.test.tsx`. Files sit next to their source, for example `src/pages/UsersPage.test.tsx`. Use `.ts` for tests with no JSX, such as `src/auth/authApi.test.ts`.
 - They assert on the DOM and take no screenshots. Each test builds its own Apollo Client with a fake link, so it controls success, failure and timing.
 - Do not assert on MUI propTypes warnings (for example "page is out of range"). React 19 ignores propTypes, so they never fire. Assert on what is rendered.
 
@@ -48,18 +48,37 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 
 - Entry point: `index.html` → `src/main.tsx` (renders `<App/>` inside `StrictMode`, `ApolloProvider` and `BrowserRouter`) → `src/App.tsx` (the `<Routes>` table).
 - GraphQL:
-  - `src/apollo/client.ts` creates the single `ApolloClient`. Its endpoint is `VITE_GRAPHQL_URL` (typed in `src/vite-env.d.ts`). The default, `http://localhost:4000/graphql`, lives only in the committed `.env`; override it in `.env.local` (gitignored) or the shell. Do not add fallbacks in code. `codegen.schema.ts` reads the same variable through Vite's `loadEnv`, so the app and the schema pull always use the same server. Start the server with `npm run dev` in `../UserListServer`.
+  - Server address: three variables, with defaults only in the committed `.env`. Override them in `.env.local` (gitignored) or the shell, and do not add fallbacks in code.
+    - `VITE_SERVER_URL`: the server's origin, `http://localhost:4000`.
+    - `VITE_GRAPHQL_URL_PATH`: the GraphQL path, `/graphql`.
+    - `VITE_API_URL_PATH`: the prefix of every REST route, `/api`.
+  - The browser never calls the server directly. Apollo uses `VITE_GRAPHQL_URL_PATH` and `src/auth/authApi.ts` uses `VITE_API_URL_PATH`, both on the app's own origin. The Vite dev and preview servers proxy them to `VITE_SERVER_URL` (`vite.config.ts`):
+    - Both are forwarded unchanged, to `VITE_SERVER_URL` + the path. The server serves GraphQL at `/graphql` and every REST route under `/api` (`/api/login`, `/api/session`).
+    - The `/api` prefix also keeps the proxy off the UI's own `/login` page.
+    - Because of the proxy, the session cookie lives on the UI's origin and needs no CORS credentials.
+    - A production deployment needs the same forwarding.
+  - `serverEnv.ts` reads the three variables (through Vite's `loadEnv`) for the Node-side configs: `vite.config.ts` and `codegen.schema.ts`. So the app, the proxy and the schema pull always use the same server.
+  - Start the server with `npm run dev` in `../UserListServer`.
+  - `src/apollo/client.ts` creates the single `ApolloClient`.
   - Queries live by domain, for example `GET_USERS` in `src/users/queries.ts`. Type each document as `TypedDocumentNode<XQuery, XQueryVariables>` with the generated types, so `useQuery` infers `data`. Never write GraphQL types by hand; derive them from the generated ones (e.g. `GetUsersQuery['users'][number]`).
   - Types come from GraphQL Code Generator. The server is a separate repo, so the client commits its own copy of the schema in `schema.graphql`:
-    - `npm run schema:pull` (`codegen.schema.ts`) fetches the schema from the running server at `VITE_GRAPHQL_URL` into `schema.graphql`. Run it only when the server API changes, and commit the diff.
+    - `npm run schema:pull` (`codegen.schema.ts`) fetches the schema from the running server at `VITE_SERVER_URL` + `VITE_GRAPHQL_URL_PATH` (directly, no proxy) into `schema.graphql`. Run it only when the server API changes, and commit the diff.
     - `npm run codegen` (`codegen.ts`) generates `src/types/__generated__/graphql.ts` from `schema.graphql` and the `gql` documents in `src/`. It needs no server. Never edit the generated file. Commit it.
     - `npm run codegen:check` fails if the generated file is out of date. `npm run build` runs it first, so a query edit without `npm run codegen` fails the build.
     - The codegen CLI needs the pinned Node 22 (it uses `fs.glob`). On Node 20 it crashes with "does not provide an export named 'glob'".
   - Apollo Client 4 import paths: core (`ApolloClient`, `gql`, `HttpLink`) from `@apollo/client`, hooks and `ApolloProvider` from `@apollo/client/react`, and `MockedProvider` from `@apollo/client/testing/react`.
+- Auth (`src/auth/`):
+  - `AuthProvider` wraps the app in `main.tsx`. On mount it calls `GET /api/session` once. Read the state with `useAuth()`, which returns `{ isLoading, isAuthenticated, username, login }` and throws outside the provider.
+  - `isLoading` is true only during that first session check. `login()` never sets it, so the form tracks its own pending state.
+  - `login()` never rejects. It resolves to `{ ok: true }` or `{ ok: false, error: 'invalid-credentials' | 'network' | 'server' }`. A failed login leaves the state unchanged, as the server leaves the session. A successful login wins over a session check that answers later.
+  - A session check that fails (network or server error) counts as logged out.
+  - The files are split so each component file exports only a component: `AuthContext.ts` (context and types), `AuthProvider.tsx`, `useAuth.ts`, and `authApi.ts` (the fetch calls).
+  - The REST calls go to `VITE_API_URL_PATH` (`/api`) on the app's origin. See "Server address" above for how the proxy forwards them.
+  - Behavior tests stub `fetch` with `vi.spyOn(globalThis, 'fetch')`. `src/auth/authApi.test.ts` covers the HTTP layer: the request each call sends, and how every status, network error and malformed body maps to a result. `src/auth/AuthProvider.test.tsx` covers the state on top of it.
 - All routes are nested under the pathless `src/layouts/MainLayout.tsx` (Header, `<Outlet/>` in a `<main>` Container, Footer). Pages live in `src/pages/`.
 - Header links come from `src/navItems.ts`. To add a page, add an entry there and a `<Route>` in `App.tsx`. On `sm` and up the links render inline; below `sm` they move into a Drawer opened by a menu button.
 - MUI v9 has no system props (`color`, `mt`, `align`, ...) on `Box`/`Typography`/`Stack`/etc. Use `sx`. Router links use `component={NavLink}` / `component={Link}`, and the active link is styled through `'&.active'` in `sx`.
-- TypeScript uses project references: `tsconfig.app.json` covers `src/` and `tsconfig.node.json` covers the root config files (`vite.config.ts`, `vitest.config.ts`, `codegen*.ts`). It is TypeScript `~7.0` (the native Go-based compiler).
+- TypeScript uses project references: `tsconfig.app.json` covers `src/` and `tsconfig.node.json` covers the root config files (`vite.config.ts`, `vitest.config.ts`, `codegen*.ts`, `serverEnv.ts`). It is TypeScript `~7.0` (the native Go-based compiler).
 - The compiler settings are strict about some things:
   - `verbatimModuleSyntax`: type-only imports must use `import type`.
   - `erasableSyntaxOnly`: no `enum`, `namespace` or constructor parameter properties.

@@ -12,7 +12,7 @@ export default mergeConfig(
           extends: true,
           test: {
             name: 'behavior',
-            include: ['src/**/*.test.tsx'],
+            include: ['src/**/*.test.{ts,tsx}'],
             exclude: ['**/node_modules/**', 'src/**/*.vrt.test.tsx'],
             browser: {
               enabled: true,
