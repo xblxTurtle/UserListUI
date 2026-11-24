@@ -1,20 +1,20 @@
-import { ApolloProvider } from '@apollo/client/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
-import { apolloClient } from './apollo/client.ts'
+import AppApolloProvider from './apollo/AppApolloProvider.tsx'
 import App from './App.tsx'
 import AuthProvider from './auth/AuthProvider.tsx'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ApolloProvider client={apolloClient}>
-      <AuthProvider>
+    {/* Auth outside Apollo, so a 401 from /graphql can log out. */}
+    <AuthProvider>
+      <AppApolloProvider>
         <BrowserRouter>
           <App />
         </BrowserRouter>
-      </AuthProvider>
-    </ApolloProvider>
+      </AppApolloProvider>
+    </AuthProvider>
   </StrictMode>,
 )

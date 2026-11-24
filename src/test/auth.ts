@@ -14,6 +14,7 @@ export function fakeAuth({
     isAuthenticated: username !== null,
     username,
     login: async () => ({ ok: true }),
+    logout: () => {},
   }
 }
 

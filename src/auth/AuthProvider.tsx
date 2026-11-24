@@ -7,27 +7,39 @@ type AuthState = Pick<Auth, 'isLoading' | 'username'>
 /** Provides `useAuth`. Checks for an existing session (`GET /api/session`) on mount. */
 function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ isLoading: true, username: null })
-  // Set by a successful login, so a session check that answers later can't overwrite it.
-  const loggedInRef = useRef(false)
+  // Set once login or logout has decided the state, so a session check that answers later can't overwrite it.
+  const decidedRef = useRef(false)
 
   useEffect(() => {
     fetchSession().then((username) => {
-      if (loggedInRef.current) return
+      if (decidedRef.current) return
       setState({ isLoading: false, username })
     })
   }, [])
 
-  const login = useCallback(async (username: string, password: string): Promise<LoginOutcome> => {
-    const result = await postLogin(username, password)
-    if (!result.ok) return result
-    loggedInRef.current = true
-    setState({ isLoading: false, username: result.username })
-    return { ok: true }
+  const logout = useCallback(() => {
+    decidedRef.current = true
+    setState({ isLoading: false, username: null })
   }, [])
 
+  const login = useCallback(
+    async (username: string, password: string): Promise<LoginOutcome> => {
+      const result = await postLogin(username, password)
+      if (!result.ok) {
+        // Any 401 logs out, a failed login included.
+        if (result.error === 'invalid-credentials') logout()
+        return result
+      }
+      decidedRef.current = true
+      setState({ isLoading: false, username: result.username })
+      return { ok: true }
+    },
+    [logout],
+  )
+
   const auth = useMemo<Auth>(
-    () => ({ ...state, isAuthenticated: state.username !== null, login }),
-    [state, login],
+    () => ({ ...state, isAuthenticated: state.username !== null, login, logout }),
+    [state, login, logout],
   )
 
   return <AuthContext value={auth}>{children}</AuthContext>

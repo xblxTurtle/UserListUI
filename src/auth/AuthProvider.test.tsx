@@ -176,11 +176,32 @@ describe('login', () => {
     expect(result.current).toMatchObject({ isAuthenticated: false, username: null })
   })
 
-  test('a failed login keeps an existing session, as the server does', async () => {
+  test('a 401 logs out an existing session, like any 401', async () => {
     stubServer({ session: loggedIn('ada'), login: () => json(401, { error: 'Invalid' }) })
     const { result } = await renderSettled()
 
-    await result.current.login('grace', 'wrong')
+    expect(await result.current.login('grace', 'wrong')).toEqual({
+      ok: false,
+      error: 'invalid-credentials',
+    })
+
+    await vi.waitFor(() =>
+      expect(result.current).toMatchObject({
+        isLoading: false,
+        isAuthenticated: false,
+        username: null,
+      }),
+    )
+  })
+
+  test.each([
+    ['a network error', networkError()],
+    ['a server error', () => json(500, { error: 'boom' })],
+  ])('%s keeps an existing session', async (_label, login) => {
+    stubServer({ session: loggedIn('ada'), login })
+    const { result } = await renderSettled()
+
+    await result.current.login('ada', 'secret')
 
     expect(result.current).toMatchObject({ isAuthenticated: true, username: 'ada' })
   })
@@ -202,6 +223,45 @@ describe('login', () => {
       isAuthenticated: true,
       username: 'ada',
     })
+  })
+})
+
+describe('logout', () => {
+  test('logs the user out', async () => {
+    stubServer({ session: loggedIn('ada') })
+    const { result } = await renderSettled()
+
+    result.current.logout()
+
+    await vi.waitFor(() =>
+      expect(result.current).toMatchObject({
+        isLoading: false,
+        isAuthenticated: false,
+        username: null,
+      }),
+    )
+  })
+
+  test('keeps the same function across renders', async () => {
+    stubServer({ session: loggedIn('ada') })
+    const { result } = await renderAuth()
+    const first = result.current.logout
+
+    await vi.waitFor(() => expect(result.current.isLoading).toBe(false))
+
+    expect(result.current.logout).toBe(first)
+  })
+
+  test('wins over a session check that answers later', async () => {
+    const session = deferred()
+    stubServer({ session: session.handler })
+    const { result } = await renderAuth()
+
+    result.current.logout()
+    await session.send(200, { username: 'ada' })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    expect(result.current).toMatchObject({ isLoading: false, isAuthenticated: false })
   })
 })
 

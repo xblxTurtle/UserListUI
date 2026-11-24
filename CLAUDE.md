@@ -46,7 +46,7 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 
 ## Structure and config
 
-- Entry point: `index.html` → `src/main.tsx` (renders `<App/>` inside `StrictMode`, `ApolloProvider` and `BrowserRouter`) → `src/App.tsx` (the `<Routes>` table).
+- Entry point: `index.html` → `src/main.tsx` (renders `<App/>` inside `StrictMode` > `AuthProvider` > `AppApolloProvider` > `BrowserRouter`) → `src/App.tsx` (the `<Routes>` table). `AuthProvider` sits outside Apollo so a 401 from `/graphql` can log out.
 - GraphQL:
   - Server address: three variables, with defaults only in the committed `.env`. Override them in `.env.local` (gitignored) or the shell, and do not add fallbacks in code.
     - `VITE_SERVER_URL`: the server's origin, `http://localhost:4000`.
@@ -59,7 +59,10 @@ Node version is pinned in `.nvmrc` (v22.23.2).
     - A production deployment needs the same forwarding.
   - `serverEnv.ts` reads the three variables (through Vite's `loadEnv`) for `vite.config.ts`, so the app and the proxy always use the same server.
   - Start the server with `npm run dev` in `../UserListServer`.
-  - `src/apollo/client.ts` creates the single `ApolloClient`.
+  - `src/apollo/client.ts` exports `createApolloClient({ onUnauthorized })`. It is a factory, not a module-level client.
+    - Its `ErrorLink` reacts to any HTTP 401 (`ServerError.is(error) && error.statusCode === 401`): it calls `operation.client.clearStore()`, so the previous user's data is gone, then `onUnauthorized()`. Only the status counts; a GraphQL error code inside a 200 doesn't.
+    - `src/apollo/AppApolloProvider.tsx` creates the one app client in `useState`, passing `useAuth().logout` as `onUnauthorized`, and provides it with `ApolloProvider`.
+    - Tests still build their own clients: a fake link in `UsersPage.test.tsx`, `MockedProvider` in the visual tests. `client.test.ts` covers the 401 link with a stubbed `fetch`, and `AppApolloProvider.test.tsx` covers the whole flow end to end.
   - Queries live by domain, for example `GET_USERS` in `src/users/queries.ts`. Type each document as `TypedDocumentNode<XQuery, XQueryVariables>` with the generated types, so `useQuery` infers `data`. Never write GraphQL types by hand; derive them from the generated ones (e.g. `GetUsersQuery['users'][number]`).
   - Types come from GraphQL Code Generator. The server is a separate repo, so the client commits its own copy of the schema in `schema.graphql`:
     - `npm run schema:pull` (`codegen.schema.ts`) copies the schema from the server repo's SDL file, `../UserListServer/src/schema/typeDefs.graphql`, into `schema.graphql`. It doesn't need the server running, which matters because `/graphql` requires a session and introspection would get a 401. It assumes the repos sit side by side. Run it only when the server API changes, and commit the diff.
@@ -68,9 +71,12 @@ Node version is pinned in `.nvmrc` (v22.23.2).
     - The codegen CLI needs the pinned Node 22 (it uses `fs.glob`). On Node 20 it crashes with "does not provide an export named 'glob'".
   - Apollo Client 4 import paths: core (`ApolloClient`, `gql`, `HttpLink`) from `@apollo/client`, hooks and `ApolloProvider` from `@apollo/client/react`, and `MockedProvider` from `@apollo/client/testing/react`.
 - Auth (`src/auth/`):
-  - `AuthProvider` wraps the app in `main.tsx`. On mount it calls `GET /api/session` once. Read the state with `useAuth()`, which returns `{ isLoading, isAuthenticated, username, login }` and throws outside the provider.
+  - `AuthProvider` wraps the app in `main.tsx`. On mount it calls `GET /api/session` once. Read the state with `useAuth()`, which returns `{ isLoading, isAuthenticated, username, login, logout }` and throws outside the provider.
   - `isLoading` is true only during that first session check. `login()` never sets it, so the form tracks its own pending state.
-  - `login()` never rejects. It resolves to `{ ok: true }` or `{ ok: false, error: 'invalid-credentials' | 'network' | 'server' }`. A failed login leaves the state unchanged, as the server leaves the session. A successful login wins over a session check that answers later.
+  - `login()` never rejects. It resolves to `{ ok: true }` or `{ ok: false, error: 'invalid-credentials' | 'network' | 'server' }`. A 401 (`invalid-credentials`) logs out, because any 401 means logged out. This deliberately differs from the server, which keeps an existing session after a failed login. Network and server errors leave the state unchanged.
+  - `logout()` logs out on the client only, because the server has no logout route. It is stable across renders. A GraphQL 401 calls it through `AppApolloProvider`, and `Protected` then sends the user to `/login` with `from`.
+  - Login and logout both win over a session check that answers later.
+  - Only the GraphQL 401 path clears the Apollo cache, in the link. A logout caused by a login 401 doesn't clear it.
   - A session check that fails (network or server error) counts as logged out.
   - The files are split so each component file exports only a component: `AuthContext.ts` (context and types), `AuthProvider.tsx`, `useAuth.ts`, and `authApi.ts` (the fetch calls).
   - `Protected` renders its children for a logged-in user. Anyone else gets `<Navigate to="/login" replace state={{ from: location }}/>`. `from` is the whole location (path, query and hash), kept for a post-login redirect that nothing reads yet.
