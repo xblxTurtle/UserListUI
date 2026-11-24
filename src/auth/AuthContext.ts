@@ -11,8 +11,9 @@ export type Auth = {
   /** The logged-in username, or null when logged out. */
   username: string | null
   /**
-   * Logs in through `POST /api/login`. On success the state becomes authenticated. A 401 logs out, like
-   * any 401; other failures leave the state unchanged.
+   * Logs in through `POST /api/login`. On success the state becomes authenticated; on failure it is
+   * unchanged. (On a 401 the server also deletes any existing session cookie, so the next /graphql
+   * request gets a 401 and logs out. In the app, login is only reachable while logged out anyway.)
    */
   login: (username: string, password: string) => Promise<LoginOutcome>
   /**

@@ -73,10 +73,10 @@ Node version is pinned in `.nvmrc` (v22.23.2).
 - Auth (`src/auth/`):
   - `AuthProvider` wraps the app in `main.tsx`. On mount it calls `GET /api/session` once. Read the state with `useAuth()`, which returns `{ isLoading, isAuthenticated, username, login, logout }` and throws outside the provider.
   - `isLoading` is true only during that first session check. `login()` never sets it, so the form tracks its own pending state.
-  - `login()` never rejects. It resolves to `{ ok: true }` or `{ ok: false, error: 'invalid-credentials' | 'network' | 'server' }`. A 401 (`invalid-credentials`) logs out, because any 401 means logged out. This deliberately differs from the server, which keeps an existing session after a failed login. Network and server errors leave the state unchanged.
+  - `login()` never rejects. It resolves to `{ ok: true }` or `{ ok: false, error: 'invalid-credentials' | 'network' | 'server' }`. A failed login leaves the state unchanged. On a 401 (`invalid-credentials`) the server also deletes any existing session cookie, so if `login()` were ever called while logged in, the next `/graphql` request would get a 401 and log out. In the app it can't happen, because `/login` is `GuestOnly`.
   - `logout()` logs out on the client only, because the server has no logout route. It is stable across renders. A GraphQL 401 calls it through `AppApolloProvider`, and `Protected` then sends the user to `/login` with `from`.
   - Login and logout both win over a session check that answers later.
-  - Only the GraphQL 401 path clears the Apollo cache, in the link. A logout caused by a login 401 doesn't clear it.
+  - The GraphQL 401 path clears the Apollo cache, in the link. A future Logout button that calls `logout()` should clear the cache itself.
   - A session check that fails (network or server error) counts as logged out.
   - The files are split so each component file exports only a component: `AuthContext.ts` (context and types), `AuthProvider.tsx`, `useAuth.ts`, and `authApi.ts` (the fetch calls).
   - `Protected` renders its children for a logged-in user. Anyone else gets `<Navigate to="/login" replace state={{ from: location }}/>`. `from` is the whole location (path, query and hash), kept for a post-login redirect that nothing reads yet.

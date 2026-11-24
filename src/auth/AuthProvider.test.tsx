@@ -176,28 +176,11 @@ describe('login', () => {
     expect(result.current).toMatchObject({ isAuthenticated: false, username: null })
   })
 
-  test('a 401 logs out an existing session, like any 401', async () => {
-    stubServer({ session: loggedIn('ada'), login: () => json(401, { error: 'Invalid' }) })
-    const { result } = await renderSettled()
-
-    expect(await result.current.login('grace', 'wrong')).toEqual({
-      ok: false,
-      error: 'invalid-credentials',
-    })
-
-    await vi.waitFor(() =>
-      expect(result.current).toMatchObject({
-        isLoading: false,
-        isAuthenticated: false,
-        username: null,
-      }),
-    )
-  })
-
   test.each([
+    ['a 401', () => json(401, { error: 'Invalid username or password' })],
     ['a network error', networkError()],
     ['a server error', () => json(500, { error: 'boom' })],
-  ])('%s keeps an existing session', async (_label, login) => {
+  ])('%s leaves an existing session in the state as it is', async (_label, login) => {
     stubServer({ session: loggedIn('ada'), login })
     const { result } = await renderSettled()
 

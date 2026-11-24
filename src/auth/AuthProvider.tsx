@@ -25,16 +25,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (username: string, password: string): Promise<LoginOutcome> => {
       const result = await postLogin(username, password)
-      if (!result.ok) {
-        // Any 401 logs out, a failed login included.
-        if (result.error === 'invalid-credentials') logout()
-        return result
-      }
+      if (!result.ok) return result
       decidedRef.current = true
       setState({ isLoading: false, username: result.username })
       return { ok: true }
     },
-    [logout],
+    [],
   )
 
   const auth = useMemo<Auth>(
